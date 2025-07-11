@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  notes-to-blog:
+    build: .
+    container_name: notes-to-blog
+    restart: unless-stopped
+    environment:
+      - APP_ENV=production
+      - DEBUG=false
+      # Add your API keys here or use .env file
+      # - OPENROUTER_API_KEY=your_key_here
+      # - REPLICATE_API_TOKEN=your_token_here
+      # - BRAVE_API_KEY=your_key_here
+    volumes:
+      # Mount input/output directories for persistence
+      - ./inbox:/app/inbox
+      - ./output:/app/output
+      - ./images:/app/images
+      - ./logs:/app/logs
+      - ./data:/app/data
+      - ./backups:/app/backups
+      # Mount .env file for configuration
+      - ./.env:/app/.env:ro
+    ports:
+      # Optional: expose port for health checks
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import sys; sys.exit(0)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - notes-to-blog-network
+
+  # Optional: Add a monitoring service
+  monitoring:
+    image: grafana/grafana:latest
+    container_name: notes-to-blog-monitoring
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana-storage:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+    networks:
+      - notes-to-blog-network
+    depends_on:
+      - notes-to-blog
+
+volumes:
+  grafana-storage:
+
+networks:
+  notes-to-blog-network:
+    driver: bridge 
