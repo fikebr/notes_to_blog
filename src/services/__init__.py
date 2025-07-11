@@ -7,10 +7,10 @@ Provides centralized access, configuration, and health checks for all services.
 import logging
 from typing import Dict, Any, Optional, Type
 
-from models import Config
-from services.openrouter_service import OpenRouterService
-from services.replicate_service import ReplicateService
-from services.brave_search_service import BraveSearchService
+from src.models.config_models import Config
+from src.services.openrouter_service import OpenRouterService
+from src.services.replicate_service import ReplicateService
+from src.services.brave_search_service import BraveSearchService
 
 logger = logging.getLogger(__name__)
 

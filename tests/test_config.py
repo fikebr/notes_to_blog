@@ -10,8 +10,7 @@ from pathlib import Path
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from config import load_config, initialize_config, get_config
-from models import Config, APIConfig, AppConfig
+from src.models.config_models import Config, APIConfig, AppConfig
 
 
 def test_imports():
@@ -25,7 +24,7 @@ def test_imports():
         print("✅ config module imports work")
         
         # Test models imports
-        from models import Config, APIConfig, AppConfig, PathConfig, LoggingConfig
+        from src.models.config_models import Config, APIConfig, AppConfig, PathConfig, LoggingConfig
         print("✅ models module imports work")
         
         # Test specific model imports

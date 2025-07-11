@@ -10,7 +10,7 @@ from typing import Optional
 
 from dotenv import load_dotenv
 
-from models import Config
+from src.models.config_models import Config
 
 
 def load_config(env_file: Optional[str] = None) -> Config:

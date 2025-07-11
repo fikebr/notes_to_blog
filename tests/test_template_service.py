@@ -11,7 +11,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from services.template_service import TemplateService
-from models import FrontMatter, BlogPost, Subheading
+from src.models.blog_models import FrontMatter, BlogPost, Subheading
 
 
 def test_template_service_initialization():

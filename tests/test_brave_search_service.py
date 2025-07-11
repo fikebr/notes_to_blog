@@ -16,8 +16,8 @@ from services.brave_search_service import (
     BraveSearchResponse,
     BraveSearchCache
 )
-from models import Config
-from models.config_models import APIConfig
+from src.models.config_models import Config
+from src.models.config_models import APIConfig
 
 
 def test_brave_search_result_model():

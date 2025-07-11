@@ -136,7 +136,7 @@ tags=["tag1", "tag2", "tag3"]
 #### 5.2 Configuration Management
 - **Environment Variables:** .env file for API keys and secrets
 - **Application Config:** config.py for application settings
-- **Templates:** Stored templates for frontmatter and other structures
+- **Templates:** Stored templates for frontmatter, agent prompts, and crew prompts as editable .txt files
 
 ### 6. File Structure
 
@@ -152,7 +152,15 @@ notes_to_blog/
 │   ├── services/
 │   └── agents/
 ├── templates/
-│   └── frontmatter_template.md
+│   ├── frontmatter_template.md
+│   ├── agent_prompts/
+│   │   ├── content_analyzer.txt
+│   │   ├── researcher.txt
+│   │   ├── content_writer.txt
+│   │   ├── image_generator.txt
+│   │   └── metadata_generator.txt
+│   └── crew_prompts/
+│       └── blog_post_crew.txt
 ├── inbox/
 ├── output/
 ├── images/

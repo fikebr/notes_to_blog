@@ -19,7 +19,7 @@ import hashlib
 import httpx
 from pydantic import BaseModel, Field, field_validator
 
-from models import Config
+from src.models.config_models import Config
 
 logger = logging.getLogger(__name__)
 

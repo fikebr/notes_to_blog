@@ -17,7 +17,7 @@ from services.replicate_service import (
     ImageGenerationResult,
     ImageProcessor
 )
-from models import Config
+from src.models.config_models import Config
 from models.config_models import APIConfig
 
 

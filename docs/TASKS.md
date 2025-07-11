@@ -61,6 +61,8 @@ This document breaks down the development of the Notes to Blog Post Application 
 - [x] Create `templates/` directory
 - [x] Design frontmatter template based on PRD specification
 - [x] Create image prompt templates
+- [x] Create agent prompt templates as editable .txt files
+- [ ] Create crew prompt templates as editable .txt files
 - [x] Implement template loading and rendering functions
 - [x] Add template validation
 
@@ -112,46 +114,52 @@ This document breaks down the development of the Notes to Blog Post Application 
 **Dependencies:** Phase 3
 
 ### 4.1 Agent Base Classes
-- [ ] Create `src/agents/` directory
-- [ ] Design base agent class with common functionality
-- [ ] Implement agent configuration management
-- [ ] Add agent logging and monitoring
+- [x] Create `src/agents/` directory
+- [x] Design base agent class with common functionality
+- [x] Implement agent configuration management
+- [x] Add agent logging and monitoring
+- [x] Create prompt template loading system for agents
 
 ### 4.2 Content Analysis Agent
-- [ ] Create `src/agents/content_analyzer.py`
-- [ ] Implement note summarization functionality
-- [ ] Add title and description generation
-- [ ] Create content outline generation (2-5 subheadings)
-- [ ] Test with sample notes
+- [x] Create `src/agents/content_analyzer.py`
+- [x] Create `templates/agent_prompts/content_analyzer.txt` template
+- [x] Implement note summarization functionality
+- [x] Add title and description generation
+- [x] Create content outline generation (2-5 subheadings)
+- [x] Test with sample notes
 
 ### 4.3 Research Agent
-- [ ] Create `src/agents/researcher.py`
-- [ ] Implement web search integration
-- [ ] Add content research for subheadings
-- [ ] Implement source validation and citation
-- [ ] Test research capabilities
+- [x] Create `src/agents/researcher.py`
+- [x] Create `templates/agent_prompts/researcher.txt` template
+- [x] Implement web search integration
+- [x] Add content research for subheadings
+- [x] Implement source validation and citation
+- [x] Test research capabilities
 
 ### 4.4 Content Writer Agent
-- [ ] Create `src/agents/content_writer.py`
-- [ ] Implement introduction and conclusion writing
-- [ ] Add subheading content expansion
-- [ ] Implement content structuring and formatting
-- [ ] Test content generation
+- [x] Create `src/agents/content_writer.py`
+- [x] Create `templates/agent_prompts/content_writer.txt` template
+- [x] Implement introduction and conclusion writing
+- [x] Add subheading content expansion
+- [x] Implement content structuring and formatting
+- [x] Test content generation
 
 ### 4.5 Image Generation Agent
-- [ ] Create `src/agents/image_generator.py`
-- [ ] Implement image prompt creation
-- [ ] Add image generation coordination
-- [ ] Implement image linking in content
-- [ ] Test image generation workflow
+- [x] Create `src/agents/image_generator.py`
+- [x] Create `templates/agent_prompts/image_generator.txt` template
+- [x] Implement image prompt creation
+- [x] Add image generation coordination
+- [x] Implement image linking in content
+- [x] Test image generation workflow
 
 ### 4.6 Metadata Agent
-- [ ] Create `src/agents/metadata_generator.py`
-- [ ] Implement category selection logic
-- [ ] Add tag generation (2-5 tags)
-- [ ] Create frontmatter generation
-- [ ] Implement filename generation
-- [ ] Test metadata generation
+- [x] Create `src/agents/metadata_generator.py`
+- [x] Create `templates/agent_prompts/metadata_generator.txt` template
+- [x] Implement category selection logic
+- [x] Add tag generation (2-5 tags)
+- [x] Create frontmatter generation
+- [x] Implement filename generation
+- [x] Test metadata generation
 
 ---
 
@@ -162,6 +170,7 @@ This document breaks down the development of the Notes to Blog Post Application 
 
 ### 5.1 CrewAI Crew Setup
 - [ ] Create `src/crews/blog_post_crew.py`
+- [ ] Create `templates/crew_prompts/blog_post_crew.txt` template
 - [ ] Define agent roles and responsibilities
 - [ ] Implement task delegation and coordination
 - [ ] Add workflow monitoring and logging
@@ -312,9 +321,9 @@ This document breaks down the development of the Notes to Blog Post Application 
 - [x] Error handling implemented
 
 ### Phase 4 Success
-- [ ] All agents functional
-- [ ] Content generation working
-- [ ] Image generation operational
+- [x] All agents functional
+- [x] Content generation working
+- [x] Image generation operational
 
 ### Phase 5 Success
 - [ ] Complete workflow functional

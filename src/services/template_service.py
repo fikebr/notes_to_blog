@@ -12,7 +12,7 @@ from datetime import datetime
 
 from jinja2 import Environment, FileSystemLoader, Template, TemplateError, TemplateSyntaxError
 
-from models import BlogPost, FrontMatter, Subheading, Image
+from src.models.blog_models import BlogPost, FrontMatter, Subheading, Image
 
 logger = logging.getLogger(__name__)
 

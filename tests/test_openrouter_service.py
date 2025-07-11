@@ -11,7 +11,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from services.openrouter_service import OpenRouterService, RateLimiter, OpenRouterMessage, OpenRouterRequest
-from models import Config
+from src.models.config_models import Config
 from models.config_models import APIConfig
 
 
