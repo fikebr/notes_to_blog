@@ -147,6 +147,7 @@ class CrewAIConfig(BaseModel):
     agent_temperature: float = Field(default=0.7, description="Agent temperature (0.0-1.0)")
     enable_parallel_processing: bool = Field(default=True, description="Enable parallel task processing")
     max_concurrent_tasks: int = Field(default=3, description="Maximum concurrent tasks")
+    agent_max_retries: int = Field(default=3, description="Maximum retries for agent API calls")
     
     @field_validator('agent_temperature', mode='after')
     def validate_temperature(cls, v):

@@ -65,10 +65,10 @@ This document breaks down the development of the Notes to Blog Post Application 
 - [x] Add template validation
 
 ### 2.3 File Structure Setup
-- [ ] Create `inbox/` directory for input notes
-- [ ] Create `output/` directory for generated blog posts
-- [ ] Create `images/` directory for generated media
-- [ ] Set up proper file permissions and access controls
+- [x] Create `inbox/` directory for input notes
+- [x] Create `output/` directory for generated blog posts
+- [x] Create `images/` directory for generated media
+- [x] Set up proper file permissions and access controls
 
 ---
 
@@ -78,11 +78,11 @@ This document breaks down the development of the Notes to Blog Post Application 
 **Dependencies:** Phase 2
 
 ### 3.1 OpenRouter Integration
-- [ ] Create `src/services/openrouter_service.py`
-- [ ] Implement LLM client with proper error handling
-- [ ] Add retry logic and rate limiting
-- [ ] Create adapter for CrewAI integration
-- [ ] Test with sample prompts
+- [x] Create `src/services/openrouter_service.py`
+- [x] Implement LLM client with proper error handling
+- [x] Add retry logic and rate limiting
+- [x] Create adapter for CrewAI integration
+- [x] Test with sample prompts
 
 ### 3.2 Replicate.com Integration
 - [ ] Create `src/services/replicate_service.py`
@@ -304,7 +304,7 @@ This document breaks down the development of the Notes to Blog Post Application 
 ### Phase 2 Success
 - [x] All data models validated
 - [x] Template system working
-- [ ] File structure properly configured
+- [x] File structure properly configured
 
 ### Phase 3 Success
 - [ ] All external services integrated
