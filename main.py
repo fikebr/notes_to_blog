@@ -18,6 +18,7 @@ from src.logger import setup_logging
 from src.models.config_models import Config
 from src.services.input_processor import InputProcessor
 from src.services.output_generator import OutputGenerator
+from src.services import ServiceRegistry
 from src.crews.blog_post_crew import BlogPostCrew
 
 app = typer.Typer(help="Notes to Blog: Convert notes to blog posts using AI agents.")
@@ -61,8 +62,12 @@ def process_file(
         if not note:
             console.print(f"[red]Failed to process file: {file}[/red]")
             raise typer.Exit(code=1)
-        crew = BlogPostCrew(config)
-        blog_post = crew.process_note(note)
+        
+        # Create service registry
+        service_registry = ServiceRegistry(config)
+        
+        crew = BlogPostCrew(config, service_registry)
+        blog_post = crew.create_blog_post(note.content, note.filename)
         output_gen = OutputGenerator(config)
         result = output_gen.generate_blog_post_file(blog_post)
         if result["success"]:
@@ -93,7 +98,11 @@ def process_batch(
     if not files:
         console.print(f"[yellow]No note files found in {inbox_dir}.[/yellow]")
         raise typer.Exit()
-    crew = BlogPostCrew(config)
+    
+    # Create service registry
+    service_registry = ServiceRegistry(config)
+    
+    crew = BlogPostCrew(config, service_registry)
     output_gen = OutputGenerator(config)
     with Progress(SpinnerColumn(), TextColumn("{task.description}"), BarColumn(), TimeElapsedColumn(), console=console) as progress:
         task = progress.add_task("Processing notes...", total=len(files))
@@ -103,7 +112,7 @@ def process_batch(
                 if not note:
                     progress.console.print(f"[red]Failed to process file: {file.name}[/red]")
                     continue
-                blog_post = crew.process_note(note)
+                blog_post = crew.create_blog_post(note.content, note.filename)
                 result = output_gen.generate_blog_post_file(blog_post)
                 if result["success"]:
                     logger.info(f"Processed file: {file} -> {result['file_path']}")
