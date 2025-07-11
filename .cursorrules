@@ -1,0 +1,138 @@
+
+# Design Patterns
+
+Keep these design patterns in mind when structuring all code.
+
+1) DRY (Don't Repeat Yourself) - Reduce repetition by abstracting common functionality
+2) Adapter Pattern - create a middle layer (adapter) between your code and external libraries or modules.
+3) Microservices Architecture - Building applications as suites of small services
+
+# Naming
+
+- always use snake_case naming
+- function names should be desriptive... example: use "open_image_list_file" instead of "opn_file"
+- Use descriptive variable names with auxiliary verbs (e.g., is_active, has_permission).
+
+# Coding Conventions
+
+- all python functions should use proper type hints (use pydantic)
+- always use pydantic for data models.
+- every function should have a docstring
+- docstrings should be no longer then 3 lines
+- prioritize a descriptive function name over a long docstring
+- Use type hints for all function signatures where possible.
+
+# Dependencies
+- python-dotenv - to load the .env secrets file.
+- pydantic - to enforce typing and data modeling
+- uv - to manage venv and modules
+- fastapi - to build REST apis
+- pickledb - as a simple redis alternative
+- toml - for human readable reports
+
+# Configuration
+
+- use a config.py for configuration information
+- use a .env for secret config information
+
+# Error Handling and Validation
+
+- all functions should have error handeling
+- Handle errors and edge cases at the beginning of functions.
+- Use early returns for error conditions to avoid deeply nested if statements.
+- Place the happy path last in the function for improved readability.
+- All errors should report the error message, function and line number
+
+# Logging
+
+- implement logging with file and screen output and file rotaion.
+- example code.
+
+```
+### src/logger.py ###
+
+import logging
+import os
+from logging.handlers import RotatingFileHandler
+import sys
+
+def setup_logging(
+    log_file_path=config.logfile,
+    console_level=logging.INFO,
+    file_level=logging.DEBUG,
+    log_format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    rotation_type='size',  # 'size' or 'time'
+    max_bytes=10_485_760,  # 10 MB
+    backup_count=3,
+    encoding='utf-8'
+):
+    # Create logger
+    logger = logging.getLogger()
+    logger.setLevel(logging.DEBUG)  # Set to lowest level, handlers will filter
+    
+    # Clear existing handlers to avoid duplicate logs
+    if logger.hasHandlers():
+        logger.handlers.clear()
+    
+    # Create formatter
+    formatter = logging.Formatter(log_format)
+    
+    # Create console handler
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setLevel(console_level)
+    console_handler.setFormatter(formatter)
+    logger.addHandler(console_handler)
+    
+    # Ensure log directory exists
+    log_dir = os.path.dirname(os.path.abspath(log_file_path))
+    if log_dir and not os.path.exists(log_dir):
+        os.makedirs(log_dir)
+    
+    # Create file handler with rotation
+	file_handler = RotatingFileHandler(
+		log_file_path,
+		maxBytes=max_bytes,
+		backupCount=backup_count,
+		encoding=encoding
+	)
+    
+    file_handler.setLevel(file_level)
+    file_handler.setFormatter(formatter)
+    logger.addHandler(file_handler)
+    
+    # Log initialization completion
+    logger.info(f"Logging initialized: console={logging.getLevelName(console_level)}, "
+                f"file={logging.getLevelName(file_level)} at '{log_file_path}'")
+    
+    return logger
+
+### main.py ###
+
+from src.logger import setup_logging
+import logging
+
+# Define a log file path if config is not available
+LOG_FILE_PATH = "app.log"  # You may need to adjust this path
+
+# Initialize the logger
+logger = setup_logging(
+    log_file_path=LOG_FILE_PATH,  # Replace with config.logfile if you have a config module
+    console_level=logging.INFO,    # Customize levels as needed
+    file_level=logging.DEBUG
+)
+
+logger.info("Application started")
+
+```
+
+# Alway use the uv app.
+
+- use "uv init" & "uv venv" to start a new project and setup the virtual environment.
+- use "uv pip install" instead of pip for all module installs
+- always use "uv run" to test a script
+- use "uv sync" to install all the dependencies in the requirements.txt file
+- use "uv pip install -r requirements.txt" to install all the dependencies in the requirements.txt file
+
+# testing
+
+- always use the pytest framework for testing
