@@ -32,7 +32,8 @@ def load_config() -> Config:
     """Load and validate application config."""
     from src.models.config_models import Config
     try:
-        cfg = Config.model_validate({})  # Loads from .env if set up
+        # Load config from environment variables (including .env file)
+        cfg = Config()  # This will automatically load from .env and environment variables
         return cfg
     except Exception as e:
         console.print(f"[red]Config error:[/red] {e}")
@@ -55,15 +56,21 @@ def process_file(
     """Process a single note file into a blog post."""
     init()
     try:
-        input_processor = InputProcessor()
-        note = input_processor.parse_note(file.read_text(), file.name, file.suffix.lstrip('.'))
+        input_processor = InputProcessor(config)
+        note = input_processor._process_file(file)
+        if not note:
+            console.print(f"[red]Failed to process file: {file}[/red]")
+            raise typer.Exit(code=1)
         crew = BlogPostCrew(config)
         blog_post = crew.process_note(note)
-        output_gen = OutputGenerator()
-        out_dir = output or config.paths.output_dir
-        out_path = output_gen.generate_markdown_file(blog_post, output_dir=out_dir)
-        console.print(f"[green]Blog post generated:[/green] {out_path}")
-        logger.info(f"Processed file: {file} -> {out_path}")
+        output_gen = OutputGenerator(config)
+        result = output_gen.generate_blog_post_file(blog_post)
+        if result["success"]:
+            console.print(f"[green]Blog post generated:[/green] {result['file_path']}")
+            logger.info(f"Processed file: {file} -> {result['file_path']}")
+        else:
+            console.print(f"[red]Failed to generate blog post:[/red] {result['errors']}")
+            raise typer.Exit(code=1)
     except Exception as e:
         logger.error(f"Error processing file {file}: {e}")
         console.print(f"[red]Error:[/red] {e}")
@@ -79,7 +86,7 @@ def process_batch(
 ):
     """Process all note files in the inbox directory."""
     init()
-    input_processor = InputProcessor()
+    input_processor = InputProcessor(config)
     inbox_dir = inbox or config.paths.inbox_dir
     output_dir = output or config.paths.output_dir
     files = list(inbox_dir.glob("*.md")) + list(inbox_dir.glob("*.txt"))
@@ -87,16 +94,22 @@ def process_batch(
         console.print(f"[yellow]No note files found in {inbox_dir}.[/yellow]")
         raise typer.Exit()
     crew = BlogPostCrew(config)
-    output_gen = OutputGenerator()
+    output_gen = OutputGenerator(config)
     with Progress(SpinnerColumn(), TextColumn("{task.description}"), BarColumn(), TimeElapsedColumn(), console=console) as progress:
         task = progress.add_task("Processing notes...", total=len(files))
         for file in files:
             try:
-                note = input_processor.parse_note(file.read_text(), file.name, file.suffix.lstrip('.'))
+                note = input_processor._process_file(file)
+                if not note:
+                    progress.console.print(f"[red]Failed to process file: {file.name}[/red]")
+                    continue
                 blog_post = crew.process_note(note)
-                out_path = output_gen.generate_markdown_file(blog_post, output_dir=output_dir)
-                logger.info(f"Processed file: {file} -> {out_path}")
-                progress.console.print(f"[green]Processed:[/green] {file.name} -> {out_path.name}")
+                result = output_gen.generate_blog_post_file(blog_post)
+                if result["success"]:
+                    logger.info(f"Processed file: {file} -> {result['file_path']}")
+                    progress.console.print(f"[green]Processed:[/green] {file.name} -> {Path(result['file_path']).name}")
+                else:
+                    progress.console.print(f"[red]Failed to generate blog post for {file.name}:[/red] {result['errors']}")
             except Exception as e:
                 logger.error(f"Error processing file {file}: {e}")
                 progress.console.print(f"[red]Error processing {file.name}:[/red] {e}")

@@ -14,21 +14,41 @@ class APIConfig(BaseModel):
     """API configuration for external services."""
     
     # OpenRouter Configuration
-    openrouter_api_key: str = Field(..., description="OpenRouter API key for LLM access")
+    openrouter_api_key: str = Field(
+        default="your_openrouter_api_key_here", 
+        description="OpenRouter API key for LLM access"
+    )
     openrouter_base_url: str = Field(
         default="https://openrouter.ai/api/v1",
         description="OpenRouter API base URL"
     )
     
     # Replicate.com Configuration
-    replicate_api_token: str = Field(..., description="Replicate.com API token for image generation")
+    replicate_api_token: str = Field(
+        default="your_replicate_api_token_here", 
+        description="Replicate.com API token for image generation"
+    )
     
     # Brave Browser API Configuration
-    brave_api_key: str = Field(..., description="Brave Browser API key for web search")
+    brave_api_key: str = Field(
+        default="your_brave_api_key_here", 
+        description="Brave Browser API key for web search"
+    )
     brave_search_url: str = Field(
         default="https://api.search.brave.com/res/v1/web/search",
         description="Brave search API URL"
     )
+    
+    @field_validator('openrouter_api_key', 'replicate_api_token', 'brave_api_key', mode='after')
+    def validate_api_keys(cls, v: str, info):
+        """Validate that API keys are not placeholder values."""
+        field_name = info.field_name
+        if v.startswith('your_') and v.endswith('_here'):
+            raise ValueError(
+                f"{field_name} is not configured. Please set the {field_name} environment variable "
+                f"or add it to your .env file. See example.env.txt for details."
+            )
+        return v
 
 
 class AppConfig(BaseModel):
@@ -194,7 +214,7 @@ class DevelopmentConfig(BaseModel):
 class Config(BaseModel):
     """Main configuration class that combines all configuration sections."""
     
-    api: APIConfig
+    api: APIConfig = Field(default_factory=APIConfig)
     app: AppConfig = Field(default_factory=AppConfig)
     paths: PathConfig = Field(default_factory=PathConfig)
     logging: LoggingConfig = Field(default_factory=LoggingConfig)
