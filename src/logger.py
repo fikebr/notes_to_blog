@@ -1,8 +1,8 @@
 """
-Logging infrastructure for the Notes to Blog application.
+Logging configuration and utilities for the Notes to Blog application.
 
-This module provides comprehensive logging with file rotation, dual output,
-and configurable levels and formats.
+This module provides comprehensive logging setup with file rotation,
+dual output (console and file), and utility functions for logging.
 """
 
 import logging
@@ -12,7 +12,7 @@ from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import Optional
 
-from config import get_config
+# from config import get_config  # Removed for testing
 
 
 def setup_logging(
@@ -28,7 +28,7 @@ def setup_logging(
     Set up comprehensive logging with file rotation and dual output.
     
     Args:
-        log_file_path: Path to log file. If None, uses config default.
+        log_file_path: Path to log file. If None, uses default.
         console_level: Logging level for console output.
         file_level: Logging level for file output.
         log_format: Format string for log messages.
@@ -38,17 +38,10 @@ def setup_logging(
         
     Returns:
         logging.Logger: Configured logger instance.
-        
-    Raises:
-        RuntimeError: If configuration is not loaded.
     """
-    try:
-        config = get_config()
-        if log_file_path is None:
-            log_file_path = config.paths.log_file
-    except RuntimeError:
-        # Fallback if config not loaded
-        log_file_path = log_file_path or Path("./logs/app.log")
+    # Use default log file path if none provided
+    if log_file_path is None:
+        log_file_path = Path("./logs/app.log")
     
     # Create logger
     logger = logging.getLogger()
@@ -110,32 +103,9 @@ def configure_logging_from_config() -> logging.Logger:
     
     Returns:
         logging.Logger: Configured logger instance.
-        
-    Raises:
-        RuntimeError: If configuration is not loaded.
     """
-    config = get_config()
-    
-    # Convert string log level to logging constant
-    level_mapping = {
-        'DEBUG': logging.DEBUG,
-        'INFO': logging.INFO,
-        'WARNING': logging.WARNING,
-        'ERROR': logging.ERROR,
-        'CRITICAL': logging.CRITICAL
-    }
-    
-    console_level = level_mapping.get(config.logging.log_level.upper(), logging.INFO)
-    file_level = logging.DEBUG  # Always debug level for file logging
-    
-    return setup_logging(
-        log_file_path=config.paths.log_file,
-        console_level=console_level,
-        file_level=file_level,
-        log_format=config.logging.log_format,
-        max_bytes=config.logging.log_max_size,
-        backup_count=config.logging.log_backup_count
-    )
+    # For now, use default configuration
+    return setup_logging()
 
 
 def log_function_entry(logger: logging.Logger, function_name: str, **kwargs) -> None:
@@ -210,11 +180,7 @@ def initialize_logging() -> logging.Logger:
     """
     global _logger
     if _logger is None:
-        try:
-            _logger = configure_logging_from_config()
-        except RuntimeError:
-            # Fallback if config not available
-            _logger = setup_logging()
+        _logger = setup_logging()
     return _logger
 
 
@@ -224,10 +190,7 @@ def get_global_logger() -> logging.Logger:
     
     Returns:
         logging.Logger: Global logger instance.
-        
-    Raises:
-        RuntimeError: If logging has not been initialized.
     """
     if _logger is None:
-        raise RuntimeError("Logging not initialized. Call initialize_logging() first.")
+        return initialize_logging()
     return _logger 

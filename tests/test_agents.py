@@ -1,501 +1,495 @@
 """
-Tests for CrewAI agents.
-
-Tests all agent implementations including base agent functionality,
-content analysis, research, content writing, image generation, and metadata generation.
+Unit tests for agents.
 """
-
 import pytest
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch, AsyncMock
 from pathlib import Path
-import json
 
-from src.agents import (
-    BaseAgent, ContentAnalyzerAgent, ResearchAgent, ContentWriterAgent,
-    ImageGeneratorAgent, MetadataGeneratorAgent
-)
-from src.models.config_models import Config
-from src.services import ServiceRegistry
+from src.agents.base_agent import BaseAgent
+from src.agents.content_analyzer import ContentAnalyzer
+from src.agents.researcher import Researcher
+from src.agents.content_writer import ContentWriter
+from src.agents.image_generator import ImageGenerator
+from src.agents.metadata_generator import MetadataGenerator
+from src.models.blog_models import Note, BlogPost, Image
 
 
 class TestBaseAgent:
     """Test base agent functionality."""
     
-    @pytest.fixture
-    def mock_config(self):
-        """Create mock configuration."""
-        config = Mock(spec=Config)
-        config.crewai.agent_verbose = True
-        config.crewai.agent_max_iterations = 3
-        config.crewai.agent_memory = True
-        return config
-    
-    @pytest.fixture
-    def mock_service_registry(self):
-        """Create mock service registry."""
-        registry = Mock(spec=ServiceRegistry)
-        openrouter_service = Mock()
-        openrouter_service.create_crewai_adapter.return_value = Mock()
-        registry.get_openrouter.return_value = openrouter_service
-        return registry
-    
-    @pytest.fixture
-    def base_agent(self, mock_config, mock_service_registry):
-        """Create a concrete base agent for testing."""
-        class TestAgent(BaseAgent):
-            def _get_agent_config(self):
-                from src.agents.base_agent import AgentConfig
-                return AgentConfig(
-                    name="Test Agent",
-                    role="Test Role",
-                    goal="Test goal",
-                    backstory="Test backstory"
-                )
-            
-            def _get_prompt_template_path(self):
-                return Path("templates/agent_prompts/test.txt")
-            
-            def _get_default_prompt_template(self):
-                return "Test template: {task_description}"
-        
-        return TestAgent(mock_config, mock_service_registry)
-    
-    def test_base_agent_initialization(self, base_agent):
-        """Test base agent initialization."""
-        assert base_agent.config is not None
-        assert base_agent.service_registry is not None
-        assert base_agent.agent_config.name == "Test Agent"
-        assert base_agent.prompt_template == "Test template: {task_description}"
-        assert base_agent.crewai_agent is not None
-    
-    def test_render_prompt(self, base_agent):
-        """Test prompt rendering."""
-        result = base_agent.render_prompt(task_description="Test task")
-        assert "Test task" in result
-        assert result.startswith("Test template:")
-    
-    def test_render_prompt_with_kwargs(self, base_agent):
-        """Test prompt rendering with additional kwargs."""
-        result = base_agent.render_prompt(
-            task_description="Test task",
-            extra_var="extra value"
+    def test_init(self, test_config):
+        """Test agent initialization."""
+        agent = BaseAgent(
+            name="test_agent",
+            role="Test Role",
+            goal="Test Goal",
+            config=test_config
         )
-        assert "Test task" in result
-    
-    def test_health_check(self, base_agent):
-        """Test agent health check."""
-        health = base_agent.health_check()
-        assert health["name"] == "Test Agent"
-        assert health["status"] == "healthy"
-        assert health["crewai_agent_created"] is True
-        assert health["prompt_template_loaded"] is True
+        assert agent.name == "test_agent"
+        assert agent.role == "Test Role"
+        assert agent.goal == "Test Goal"
+        assert agent.config == test_config
+
+    def test_load_prompt_template(self, test_config):
+        """Test prompt template loading."""
+        agent = BaseAgent(
+            name="test_agent",
+            role="Test Role",
+            goal="Test Goal",
+            config=test_config
+        )
+        
+        # Test with existing template
+        template = agent.load_prompt_template("content_analyzer.txt")
+        assert template is not None
+        assert "{{ note_content }}" in template
+
+    def test_load_prompt_template_not_found(self, test_config):
+        """Test prompt template loading when file not found."""
+        agent = BaseAgent(
+            name="test_agent",
+            role="Test Role",
+            goal="Test Goal",
+            config=test_config
+        )
+        
+        with pytest.raises(FileNotFoundError):
+            agent.load_prompt_template("nonexistent_template.txt")
+
+    def test_render_prompt(self, test_config):
+        """Test prompt rendering."""
+        agent = BaseAgent(
+            name="test_agent",
+            role="Test Role",
+            goal="Test Goal",
+            config=test_config
+        )
+        
+        template = "Hello {{ name }}! Your role is {{ role }}."
+        context = {"name": "Agent", "role": "Tester"}
+        
+        result = agent.render_prompt(template, context)
+        assert result == "Hello Agent! Your role is Tester."
+
+    def test_validate_input(self, test_config):
+        """Test input validation."""
+        agent = BaseAgent(
+            name="test_agent",
+            role="Test Role",
+            goal="Test Goal",
+            config=test_config
+        )
+        
+        # Valid input
+        assert agent.validate_input("Valid input") is True
+        
+        # Empty input
+        with pytest.raises(ValueError):
+            agent.validate_input("")
+
+    def test_log_activity(self, test_config):
+        """Test activity logging."""
+        agent = BaseAgent(
+            name="test_agent",
+            role="Test Role",
+            goal="Test Goal",
+            config=test_config
+        )
+        
+        # Should not raise any exceptions
+        agent.log_activity("Test activity", "info")
 
 
-class TestContentAnalyzerAgent:
-    """Test content analyzer agent."""
+class TestContentAnalyzer:
+    """Test Content Analyzer agent."""
     
-    @pytest.fixture
-    def content_analyzer(self, mock_config, mock_service_registry):
-        """Create content analyzer agent."""
-        return ContentAnalyzerAgent(mock_config, mock_service_registry)
-    
-    def test_agent_config(self, content_analyzer):
-        """Test content analyzer configuration."""
-        config = content_analyzer.agent_config
-        assert config.name == "Content Analyzer"
-        assert config.role == "Content Analysis Specialist"
-        assert "outline" in config.goal.lower()
-    
-    def test_analyze_notes(self, content_analyzer):
-        """Test notes analysis."""
-        with patch.object(content_analyzer, 'execute_task') as mock_execute:
-            mock_execute.return_value = json.dumps({
-                "title": "Test Title",
-                "description": "Test description",
-                "subheadings": ["Intro", "Main", "Conclusion"],
-                "analysis_notes": "Test notes"
-            })
-            
-            result = content_analyzer.analyze_notes("Test notes content")
-            
-            assert result["title"] == "Test Title"
-            assert result["description"] == "Test description"
-            assert len(result["subheadings"]) == 3
-    
-    def test_generate_title(self, content_analyzer):
+    def test_init(self, test_config):
+        """Test agent initialization."""
+        agent = ContentAnalyzer(test_config)
+        assert agent.name == "content_analyzer"
+        assert agent.role == "Content Analysis Specialist"
+        assert "analyze" in agent.goal.lower()
+
+    def test_analyze_note(self, test_config, mock_openrouter_service, sample_note_content):
+        """Test note analysis."""
+        agent = ContentAnalyzer(test_config)
+        
+        note = Note(
+            content=sample_note_content,
+            source_file="test.md",
+            file_type="markdown"
+        )
+        
+        result = agent.analyze_note(note)
+        assert result is not None
+        assert isinstance(result, dict)
+
+    def test_generate_title(self, test_config, mock_openrouter_service):
         """Test title generation."""
-        with patch.object(content_analyzer, 'execute_task') as mock_execute:
-            mock_execute.return_value = "Generated Title"
-            
-            result = content_analyzer.generate_title("Test notes")
-            assert result == "Generated Title"
-    
-    def test_generate_description(self, content_analyzer):
+        agent = ContentAnalyzer(test_config)
+        
+        result = agent.generate_title("Test note content")
+        assert result is not None
+        assert isinstance(result, str)
+
+    def test_generate_description(self, test_config, mock_openrouter_service):
         """Test description generation."""
-        with patch.object(content_analyzer, 'execute_task') as mock_execute:
-            mock_execute.return_value = "Generated description"
-            
-            result = content_analyzer.generate_description("Test notes")
-            assert result == "Generated description"
-    
-    def test_generate_subheadings(self, content_analyzer):
-        """Test subheading generation."""
-        with patch.object(content_analyzer, 'execute_task') as mock_execute:
-            mock_execute.return_value = "1. Introduction\n2. Main Content\n3. Conclusion"
-            
-            result = content_analyzer.generate_subheadings("Test notes", 3)
-            assert len(result) == 3
-            assert "Introduction" in result[0]
-            assert "Main Content" in result[1]
-            assert "Conclusion" in result[2]
-
-
-class TestResearchAgent:
-    """Test research agent."""
-    
-    @pytest.fixture
-    def research_agent(self, mock_config, mock_service_registry):
-        """Create research agent."""
-        return ResearchAgent(mock_config, mock_service_registry)
-    
-    def test_agent_config(self, research_agent):
-        """Test research agent configuration."""
-        config = research_agent.agent_config
-        assert config.name == "Research Specialist"
-        assert config.role == "Research Specialist"
-        assert "research" in config.goal.lower()
-    
-    def test_research_topic(self, research_agent):
-        """Test topic research."""
-        with patch.object(research_agent, 'execute_task') as mock_execute:
-            mock_execute.return_value = """
-            RESEARCH SUMMARY: Test summary
-            
-            KEY POINTS:
-            - Point 1
-            - Point 2
-            
-            SOURCES:
-            - Source 1
-            - Source 2
-            
-            CONTENT SUGGESTIONS: Test suggestions
-            """
-            
-            result = research_agent.research_topic("Test topic")
-            
-            assert "Test summary" in result["summary"]
-            assert len(result["key_points"]) == 2
-            assert len(result["sources"]) == 2
-    
-    def test_research_subheading(self, research_agent):
-        """Test subheading research."""
-        with patch.object(research_agent, 'execute_task') as mock_execute:
-            mock_execute.return_value = "RESEARCH SUMMARY: Test\nKEY POINTS:\n- Point 1"
-            
-            result = research_agent.research_subheading("Test subheading")
-            
-            assert result["subheading"] == "Test subheading"
-            assert "Test" in result["summary"]
-    
-    def test_validate_sources(self, research_agent):
-        """Test source validation."""
-        with patch.object(research_agent, 'execute_task') as mock_execute:
-            mock_execute.return_value = "Validation results"
-            
-            sources = ["http://example1.com", "http://example2.com"]
-            result = research_agent.validate_sources(sources)
-            
-            assert len(result) == 2
-            assert all("valid" in item for item in result)
-    
-    def test_generate_citations(self, research_agent):
-        """Test citation generation."""
-        with patch.object(research_agent, 'execute_task') as mock_execute:
-            mock_execute.return_value = "- Citation 1\n- Citation 2"
-            
-            research_data = {"sources": ["http://example1.com", "http://example2.com"]}
-            result = research_agent.generate_citations(research_data)
-            
-            assert len(result) == 2
-
-
-class TestContentWriterAgent:
-    """Test content writer agent."""
-    
-    @pytest.fixture
-    def content_writer(self, mock_config, mock_service_registry):
-        """Create content writer agent."""
-        return ContentWriterAgent(mock_config, mock_service_registry)
-    
-    def test_agent_config(self, content_writer):
-        """Test content writer configuration."""
-        config = content_writer.agent_config
-        assert config.name == "Content Writer"
-        assert config.role == "Content Writer Specialist"
-        assert "engaging" in config.goal.lower()
-    
-    def test_write_introduction(self, content_writer):
-        """Test introduction writing."""
-        with patch.object(content_writer, 'execute_task') as mock_execute:
-            mock_execute.return_value = "Generated introduction"
-            
-            result = content_writer.write_introduction("Test Title", "Test description")
-            assert result == "Generated introduction"
-    
-    def test_write_conclusion(self, content_writer):
-        """Test conclusion writing."""
-        with patch.object(content_writer, 'execute_task') as mock_execute:
-            mock_execute.return_value = "Generated conclusion"
-            
-            result = content_writer.write_conclusion("Test Title", ["Point 1", "Point 2"])
-            assert result == "Generated conclusion"
-    
-    def test_expand_subheading(self, content_writer):
-        """Test subheading expansion."""
-        with patch.object(content_writer, 'execute_task') as mock_execute:
-            mock_execute.return_value = "Expanded content"
-            
-            research_data = {
-                "summary": "Test summary",
-                "key_points": ["Point 1"],
-                "sources": ["Source 1"]
-            }
-            
-            result = content_writer.expand_subheading("Test subheading", research_data)
-            assert result == "Expanded content"
-    
-    def test_structure_content(self, content_writer):
-        """Test content structuring."""
-        with patch.object(content_writer, 'execute_task') as mock_execute:
-            mock_execute.return_value = "Structured content"
-            
-            sections = {"Section 1": "Content 1", "Section 2": "Content 2"}
-            result = content_writer.structure_content(sections)
-            assert result == "Structured content"
-    
-    def test_write_complete_post(self, content_writer):
-        """Test complete post writing."""
-        with patch.object(content_writer, 'write_introduction') as mock_intro:
-            with patch.object(content_writer, 'expand_subheading') as mock_expand:
-                with patch.object(content_writer, 'write_conclusion') as mock_conclusion:
-                    mock_intro.return_value = "Introduction"
-                    mock_expand.return_value = "Expanded content"
-                    mock_conclusion.return_value = "Conclusion"
-                    
-                    result = content_writer.write_complete_post(
-                        "Test Title", "Test description", 
-                        ["Section 1", "Section 2"], {}
-                    )
-                    
-                    assert "Test Title" in result
-                    assert "Introduction" in result
-                    assert "Conclusion" in result
-
-
-class TestImageGeneratorAgent:
-    """Test image generator agent."""
-    
-    @pytest.fixture
-    def image_generator(self, mock_config, mock_service_registry):
-        """Create image generator agent."""
-        return ImageGeneratorAgent(mock_config, mock_service_registry)
-    
-    def test_agent_config(self, image_generator):
-        """Test image generator configuration."""
-        config = image_generator.agent_config
-        assert config.name == "Image Generator"
-        assert config.role == "Image Generation Specialist"
-        assert "visual" in config.goal.lower()
-    
-    def test_create_image_prompts(self, image_generator):
-        """Test image prompt creation."""
-        with patch.object(image_generator, 'execute_task') as mock_execute:
-            mock_execute.return_value = """
-            HEADER IMAGE: Header prompt
-            
-            SUPPLEMENTAL IMAGES:
-            1. Supplemental prompt 1
-            2. Supplemental prompt 2
-            
-            STYLE NOTES: Style guidance
-            """
-            
-            result = image_generator.create_image_prompts(
-                "Test Title", "Test content", ["Section 1", "Section 2"]
-            )
-            
-            assert "Header prompt" in result["header_image"]
-            assert len(result["supplemental_images"]) == 2
-            assert "Style guidance" in result["style_notes"]
-    
-    def test_create_header_image_prompt(self, image_generator):
-        """Test header image prompt creation."""
-        with patch.object(image_generator, 'execute_task') as mock_execute:
-            mock_execute.return_value = "Header image prompt"
-            
-            result = image_generator.create_header_image_prompt("Test Title", "Test description")
-            assert result == "Header image prompt"
-    
-    def test_create_supplemental_image_prompts(self, image_generator):
-        """Test supplemental image prompt creation."""
-        with patch.object(image_generator, 'execute_task') as mock_execute:
-            mock_execute.return_value = "1. Prompt 1\n2. Prompt 2"
-            
-            result = image_generator.create_supplemental_image_prompts(
-                ["Section 1", "Section 2"], "Test content"
-            )
-            
-            assert len(result) == 2
-    
-    def test_generate_images(self, image_generator, mock_service_registry):
-        """Test image generation."""
-        replicate_service = Mock()
-        replicate_service.generate_image.return_value = "/path/to/image.jpg"
-        mock_service_registry.get_replicate.return_value = replicate_service
+        agent = ContentAnalyzer(test_config)
         
-        image_prompts = {
-            "header_image": "Header prompt",
-            "supplemental_images": ["Prompt 1", "Prompt 2"]
+        result = agent.generate_description("Test note content")
+        assert result is not None
+        assert isinstance(result, str)
+
+    def test_generate_outline(self, test_config, mock_openrouter_service):
+        """Test outline generation."""
+        agent = ContentAnalyzer(test_config)
+        
+        result = agent.generate_outline("Test note content")
+        assert result is not None
+        assert isinstance(result, list)
+        assert len(result) >= 2
+        assert len(result) <= 5
+
+    def test_validate_analysis_result(self, test_config):
+        """Test analysis result validation."""
+        agent = ContentAnalyzer(test_config)
+        
+        # Valid result
+        valid_result = {
+            "title": "Test Title",
+            "description": "Test Description",
+            "outline": ["Section 1", "Section 2"]
         }
+        assert agent.validate_analysis_result(valid_result) is True
         
-        result = image_generator.generate_images(image_prompts)
-        
-        assert "header" in result
-        assert "supplemental_1" in result
-        assert "supplemental_2" in result
-    
-    def test_link_images_in_content(self, image_generator):
-        """Test image linking in content."""
-        with patch.object(image_generator, 'execute_task') as mock_execute:
-            mock_execute.return_value = "Content with images"
-            
-            image_paths = {"header": "/path/to/header.jpg", "supplemental_1": "/path/to/supp1.jpg"}
-            result = image_generator.link_images_in_content("Test content", image_paths)
-            
-            assert result == "Content with images"
+        # Invalid result (missing title)
+        invalid_result = {
+            "description": "Test Description",
+            "outline": ["Section 1", "Section 2"]
+        }
+        with pytest.raises(ValueError):
+            agent.validate_analysis_result(invalid_result)
 
 
-class TestMetadataGeneratorAgent:
-    """Test metadata generator agent."""
+class TestResearcher:
+    """Test Researcher agent."""
     
-    @pytest.fixture
-    def metadata_generator(self, mock_config, mock_service_registry):
-        """Create metadata generator agent."""
-        return MetadataGeneratorAgent(mock_config, mock_service_registry)
+    def test_init(self, test_config):
+        """Test agent initialization."""
+        agent = Researcher(test_config)
+        assert agent.name == "researcher"
+        assert agent.role == "Research Specialist"
+        assert "research" in agent.goal.lower()
+
+    def test_research_topic(self, test_config, mock_brave_search_service):
+        """Test topic research."""
+        agent = Researcher(test_config)
+        
+        result = agent.research_topic("Python programming")
+        assert result is not None
+        assert isinstance(result, dict)
+        assert "results" in result
+
+    def test_research_subheading(self, test_config, mock_brave_search_service):
+        """Test subheading research."""
+        agent = Researcher(test_config)
+        
+        result = agent.research_subheading("Python functions", "Functions in Python")
+        assert result is not None
+        assert isinstance(result, dict)
+
+    def test_validate_sources(self, test_config):
+        """Test source validation."""
+        agent = Researcher(test_config)
+        
+        sources = [
+            {"title": "Source 1", "url": "https://example.com/1", "description": "Desc 1"},
+            {"title": "Source 2", "url": "https://example.com/2", "description": "Desc 2"}
+        ]
+        
+        valid_sources = agent.validate_sources(sources)
+        assert len(valid_sources) == 2
+
+    def test_filter_relevant_results(self, test_config):
+        """Test result filtering."""
+        agent = Researcher(test_config)
+        
+        results = [
+            {"title": "Relevant Result", "url": "https://example.com/1", "description": "Python programming"},
+            {"title": "Irrelevant Result", "url": "https://example.com/2", "description": "Cooking recipes"}
+        ]
+        
+        filtered = agent.filter_relevant_results(results, "Python programming")
+        assert len(filtered) == 1
+        assert filtered[0]["title"] == "Relevant Result"
+
+    def test_generate_citations(self, test_config):
+        """Test citation generation."""
+        agent = Researcher(test_config)
+        
+        sources = [
+            {"title": "Source 1", "url": "https://example.com/1", "description": "Desc 1"}
+        ]
+        
+        citations = agent.generate_citations(sources)
+        assert isinstance(citations, list)
+        assert len(citations) == 1
+
+
+class TestContentWriter:
+    """Test Content Writer agent."""
     
-    def test_agent_config(self, metadata_generator):
-        """Test metadata generator configuration."""
-        config = metadata_generator.agent_config
-        assert config.name == "Metadata Generator"
-        assert config.role == "Metadata Generation Specialist"
-        assert "SEO" in config.goal
+    def test_init(self, test_config):
+        """Test agent initialization."""
+        agent = ContentWriter(test_config)
+        assert agent.name == "content_writer"
+        assert agent.role == "Content Writer"
+        assert "write" in agent.goal.lower()
+
+    def test_write_introduction(self, test_config, mock_openrouter_service):
+        """Test introduction writing."""
+        agent = ContentWriter(test_config)
+        
+        result = agent.write_introduction("Test topic", "Test description")
+        assert result is not None
+        assert isinstance(result, str)
+
+    def test_write_conclusion(self, test_config, mock_openrouter_service):
+        """Test conclusion writing."""
+        agent = ContentWriter(test_config)
+        
+        result = agent.write_conclusion("Test content", "Test topic")
+        assert result is not None
+        assert isinstance(result, str)
+
+    def test_write_subheading_content(self, test_config, mock_openrouter_service):
+        """Test subheading content writing."""
+        agent = ContentWriter(test_config)
+        
+        result = agent.write_subheading_content(
+            "Test Subheading",
+            "Test research data",
+            "Test outline"
+        )
+        assert result is not None
+        assert isinstance(result, str)
+
+    def test_structure_content(self, test_config):
+        """Test content structuring."""
+        agent = ContentWriter(test_config)
+        
+        introduction = "Test introduction"
+        subheadings = [
+            {"title": "Section 1", "content": "Content 1"},
+            {"title": "Section 2", "content": "Content 2"}
+        ]
+        conclusion = "Test conclusion"
+        
+        structured = agent.structure_content(introduction, subheadings, conclusion)
+        assert structured is not None
+        assert "Test introduction" in structured
+        assert "Section 1" in structured
+        assert "Section 2" in structured
+        assert "Test conclusion" in structured
+
+    def test_format_content(self, test_config):
+        """Test content formatting."""
+        agent = ContentWriter(test_config)
+        
+        content = "Test content with **bold** and *italic* text."
+        formatted = agent.format_content(content)
+        assert formatted is not None
+        assert "**bold**" in formatted
+
+    def test_validate_content(self, test_config):
+        """Test content validation."""
+        agent = ContentWriter(test_config)
+        
+        # Valid content
+        valid_content = "# Test Post\n\nThis is valid content with sufficient length."
+        assert agent.validate_content(valid_content) is True
+        
+        # Invalid content (too short)
+        invalid_content = "Short"
+        with pytest.raises(ValueError):
+            agent.validate_content(invalid_content)
+
+
+class TestImageGenerator:
+    """Test Image Generator agent."""
     
-    def test_available_categories(self, metadata_generator):
-        """Test available categories."""
-        categories = metadata_generator.AVAILABLE_CATEGORIES
-        assert "development" in categories
-        assert "ai" in categories
-        assert "business" in categories
-        assert len(categories) == 9
+    def test_init(self, test_config):
+        """Test agent initialization."""
+        agent = ImageGenerator(test_config)
+        assert agent.name == "image_generator"
+        assert agent.role == "Image Generation Specialist"
+        assert "image" in agent.goal.lower()
+
+    def test_generate_header_image_prompt(self, test_config, mock_openrouter_service):
+        """Test header image prompt generation."""
+        agent = ImageGenerator(test_config)
+        
+        result = agent.generate_header_image_prompt("Test blog post", "Test description")
+        assert result is not None
+        assert isinstance(result, str)
+
+    def test_generate_supplemental_image_prompt(self, test_config, mock_openrouter_service):
+        """Test supplemental image prompt generation."""
+        agent = ImageGenerator(test_config)
+        
+        result = agent.generate_supplemental_image_prompt("Test section", "Test content")
+        assert result is not None
+        assert isinstance(result, str)
+
+    def test_generate_image(self, test_config, mock_replicate_service):
+        """Test image generation."""
+        agent = ImageGenerator(test_config)
+        
+        result = agent.generate_image("Test image prompt")
+        assert result is not None
+        assert isinstance(result, dict)
+        assert "url" in result
+
+    def test_validate_image_prompt(self, test_config):
+        """Test image prompt validation."""
+        agent = ImageGenerator(test_config)
+        
+        # Valid prompt
+        valid_prompt = "A beautiful landscape with mountains and trees"
+        assert agent.validate_image_prompt(valid_prompt) is True
+        
+        # Invalid prompt (too short)
+        invalid_prompt = "Short"
+        with pytest.raises(ValueError):
+            agent.validate_image_prompt(invalid_prompt)
+
+    def test_optimize_prompt_for_image_generation(self, test_config):
+        """Test prompt optimization."""
+        agent = ImageGenerator(test_config)
+        
+        original_prompt = "A simple image"
+        optimized = agent.optimize_prompt_for_image_generation(original_prompt)
+        assert optimized is not None
+        assert len(optimized) > len(original_prompt)
+
+    def test_generate_alt_text(self, test_config, mock_openrouter_service):
+        """Test alt text generation."""
+        agent = ImageGenerator(test_config)
+        
+        result = agent.generate_alt_text("Test image prompt")
+        assert result is not None
+        assert isinstance(result, str)
+
+    def test_generate_caption(self, test_config, mock_openrouter_service):
+        """Test caption generation."""
+        agent = ImageGenerator(test_config)
+        
+        result = agent.generate_caption("Test image prompt", "Test context")
+        assert result is not None
+        assert isinstance(result, str)
+
+
+class TestMetadataGenerator:
+    """Test Metadata Generator agent."""
     
-    def test_generate_metadata(self, metadata_generator):
-        """Test metadata generation."""
-        with patch.object(metadata_generator, 'execute_task') as mock_execute:
-            mock_execute.return_value = json.dumps({
-                "category": "development",
-                "tags": ["programming", "coding"],
-                "filename": "test-post.md",
-                "frontmatter": {
-                    "title": "Test Title",
-                    "description": "Test description",
-                    "date": "2025-01-27",
-                    "draft": True,
-                    "taxonomies": {
-                        "categories": ["development"],
-                        "tags": ["programming", "coding"]
-                    }
-                }
-            })
-            
-            result = metadata_generator.generate_metadata("Test Title", "Test description", "Test content")
-            
-            assert result["category"] == "development"
-            assert result["tags"] == ["programming", "coding"]
-            assert result["filename"] == "test-post.md"
-    
-    def test_select_category(self, metadata_generator):
+    def test_init(self, test_config):
+        """Test agent initialization."""
+        agent = MetadataGenerator(test_config)
+        assert agent.name == "metadata_generator"
+        assert agent.role == "Metadata Specialist"
+        assert "metadata" in agent.goal.lower()
+
+    def test_select_category(self, test_config, mock_openrouter_service):
         """Test category selection."""
-        with patch.object(metadata_generator, 'execute_task') as mock_execute:
-            mock_execute.return_value = "development"
-            
-            result = metadata_generator.select_category("Test Title", "Test content")
-            assert result == "development"
-    
-    def test_generate_tags(self, metadata_generator):
+        agent = MetadataGenerator(test_config)
+        
+        result = agent.select_category("Test content about Python programming")
+        assert result is not None
+        assert isinstance(result, str)
+        assert result in ["development", "computer", "ai", "business", "home", "crafting", "health", "diy", "recipes"]
+
+    def test_generate_tags(self, test_config, mock_openrouter_service):
         """Test tag generation."""
-        with patch.object(metadata_generator, 'execute_task') as mock_execute:
-            mock_execute.return_value = "programming\ncoding\nsoftware"
-            
-            result = metadata_generator.generate_tags("Test Title", "Test content", "development")
-            
-            assert len(result) >= 2
-            assert "programming" in result
-    
-    def test_generate_filename(self, metadata_generator):
+        agent = MetadataGenerator(test_config)
+        
+        result = agent.generate_tags("Test content", "development")
+        assert result is not None
+        assert isinstance(result, list)
+        assert len(result) >= 2
+        assert len(result) <= 5
+
+    def test_generate_frontmatter(self, test_config):
+        """Test frontmatter generation."""
+        agent = MetadataGenerator(test_config)
+        
+        blog_post = BlogPost(
+            title="Test Post",
+            description="Test description",
+            content="# Test Post\n\nContent here.",
+            category="development",
+            tags=["test", "blog"]
+        )
+        
+        frontmatter = agent.generate_frontmatter(blog_post)
+        assert frontmatter is not None
+        assert isinstance(frontmatter, str)
+        assert "+++" in frontmatter
+        assert "title = \"Test Post\"" in frontmatter
+
+    def test_generate_filename(self, test_config):
         """Test filename generation."""
-        with patch.object(metadata_generator, 'execute_task') as mock_execute:
-            mock_execute.return_value = "test-blog-post.md"
-            
-            result = metadata_generator.generate_filename("Test Blog Post", "development")
-            assert result == "test-blog-post.md"
-    
-    def test_create_frontmatter(self, metadata_generator):
-        """Test frontmatter creation."""
-        with patch.object(metadata_generator, 'execute_task') as mock_execute:
-            mock_execute.return_value = json.dumps({
-                "title": "Test Title",
-                "description": "Test description",
-                "date": "2025-01-27",
-                "draft": True,
-                "taxonomies": {
-                    "categories": ["development"],
-                    "tags": ["programming", "coding"]
-                }
-            })
-            
-            result = metadata_generator.create_frontmatter(
-                "Test Title", "Test description", "development", ["programming", "coding"]
-            )
-            
-            assert result["title"] == "Test Title"
-            assert result["draft"] is True
-            assert "development" in result["taxonomies"]["categories"]
-    
-    def test_clean_filename(self, metadata_generator):
-        """Test filename cleaning."""
-        result = metadata_generator._clean_filename("Test Blog Post!")
-        assert result == "test-blog-post.md"
+        agent = MetadataGenerator(test_config)
         
-        result = metadata_generator._clean_filename("Test Post.md")
-        assert result == "test-post.md"
-    
-    def test_determine_default_category(self, metadata_generator):
-        """Test default category determination."""
-        result = metadata_generator._determine_default_category("Python Programming", "Code examples")
-        assert result == "development"
-        
-        result = metadata_generator._determine_default_category("AI and Machine Learning", "ML content")
-        assert result == "ai"
-    
-    def test_generate_fallback_tags(self, metadata_generator):
-        """Test fallback tag generation."""
-        result = metadata_generator._generate_fallback_tags("development")
-        assert result == ["programming", "coding", "software"]
-        
-        result = metadata_generator._generate_fallback_tags("ai")
-        assert result == ["artificial-intelligence", "machine-learning", "automation"]
+        result = agent.generate_filename("Test Blog Post Title")
+        assert result is not None
+        assert isinstance(result, str)
+        assert result.startswith("test-blog-post-title")
+        assert result.endswith(".md")
 
+    def test_validate_category(self, test_config):
+        """Test category validation."""
+        agent = MetadataGenerator(test_config)
+        
+        # Valid categories
+        assert agent.validate_category("development") is True
+        assert agent.validate_category("ai") is True
+        
+        # Invalid category
+        with pytest.raises(ValueError):
+            agent.validate_category("invalid-category")
 
-if __name__ == "__main__":
-    pytest.main([__file__]) 
+    def test_validate_tags(self, test_config):
+        """Test tag validation."""
+        agent = MetadataGenerator(test_config)
+        
+        # Valid tags
+        valid_tags = ["python", "programming", "tutorial"]
+        assert agent.validate_tags(valid_tags) is True
+        
+        # Too many tags
+        too_many_tags = ["tag"] * 10
+        with pytest.raises(ValueError):
+            agent.validate_tags(too_many_tags)
+        
+        # Too few tags
+        too_few_tags = ["tag"]
+        with pytest.raises(ValueError):
+            agent.validate_tags(too_few_tags)
+
+    def test_optimize_tags(self, test_config):
+        """Test tag optimization."""
+        agent = MetadataGenerator(test_config)
+        
+        tags = ["python", "programming", "tutorial", "code", "development"]
+        optimized = agent.optimize_tags(tags)
+        assert len(optimized) <= 5
+        assert all(isinstance(tag, str) for tag in optimized)
+
+    def test_generate_seo_description(self, test_config, mock_openrouter_service):
+        """Test SEO description generation."""
+        agent = MetadataGenerator(test_config)
+        
+        result = agent.generate_seo_description("Test content", "Test title")
+        assert result is not None
+        assert isinstance(result, str)
+        assert len(result) <= 160  # SEO best practice 
