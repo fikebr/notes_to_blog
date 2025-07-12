@@ -22,6 +22,10 @@ class APIConfig(BaseModel):
         default="https://openrouter.ai/api/v1",
         description="OpenRouter API base URL"
     )
+    openrouter_model: str = Field(
+        default="", 
+        description="OpenRouter model to use (e.g., openai/gpt-4, anthropic/claude-3-opus, etc.)"
+    )
     
     # Replicate.com Configuration
     replicate_api_token: str = Field(
@@ -47,6 +51,16 @@ class APIConfig(BaseModel):
             raise ValueError(
                 f"{field_name} is not configured. Please set the {field_name} environment variable "
                 f"or add it to your .env file. See example.env.txt for details."
+            )
+        return v
+    
+    @field_validator('openrouter_model', mode='after')
+    def validate_openrouter_model(cls, v: str):
+        """Validate that OpenRouter model is configured."""
+        if not v or v.strip() == "":
+            raise ValueError(
+                "openrouter_model is not configured. Please set the OPENROUTER_MODEL environment variable "
+                "or add it to your .env file. See example.env.txt for details."
             )
         return v
 

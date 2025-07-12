@@ -10,9 +10,8 @@ from pathlib import Path
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from services.openrouter_service import OpenRouterService, RateLimiter, OpenRouterMessage, OpenRouterRequest
-from src.models.config_models import Config
-from models.config_models import APIConfig
+from src.services.openrouter_service import OpenRouterService, RateLimiter, OpenRouterMessage, OpenRouterRequest
+from src.models.config_models import Config, APIConfig
 
 
 async def test_rate_limiter():
@@ -78,7 +77,7 @@ def test_openrouter_request_model():
     try:
         # Valid request
         request = OpenRouterRequest(
-            model="openai/gpt-4",
+            model="test/model",
             messages=[
                 OpenRouterMessage(role="user", content="Hello")
             ],
@@ -90,7 +89,7 @@ def test_openrouter_request_model():
         # Test invalid temperature
         try:
             OpenRouterRequest(
-                model="openai/gpt-4",
+                model="test/model",
                 messages=[
                     OpenRouterMessage(role="user", content="Hello")
                 ],
@@ -104,7 +103,7 @@ def test_openrouter_request_model():
         # Test invalid max_tokens
         try:
             OpenRouterRequest(
-                model="openai/gpt-4",
+                model="test/model",
                 messages=[
                     OpenRouterMessage(role="user", content="Hello")
                 ],
@@ -133,6 +132,7 @@ def test_openrouter_service_initialization():
             api=APIConfig(
                 openrouter_api_key="test_key",
                 openrouter_base_url="https://openrouter.ai/api/v1",
+                openrouter_model="test/model",
                 replicate_api_token="test_token",
                 brave_api_key="test_brave_key"
             )
@@ -149,6 +149,7 @@ def test_openrouter_service_initialization():
                 api=APIConfig(
                     openrouter_api_key="your_openrouter_api_key_here",
                     openrouter_base_url="https://openrouter.ai/api/v1",
+                    openrouter_model="test/model",
                     replicate_api_token="test_token",
                     brave_api_key="test_brave_key"
                 )
@@ -179,6 +180,7 @@ async def test_text_generation():
             api=APIConfig(
                 openrouter_api_key="test_key",
                 openrouter_base_url="https://openrouter.ai/api/v1",
+                openrouter_model="test/model",
                 replicate_api_token="test_token",
                 brave_api_key="test_brave_key"
             )
@@ -211,6 +213,7 @@ def test_crewai_adapter():
             api=APIConfig(
                 openrouter_api_key="test_key",
                 openrouter_base_url="https://openrouter.ai/api/v1",
+                openrouter_model="test/model",
                 replicate_api_token="test_token",
                 brave_api_key="test_brave_key"
             )
@@ -243,6 +246,7 @@ async def test_health_check():
             api=APIConfig(
                 openrouter_api_key="test_key",
                 openrouter_base_url="https://openrouter.ai/api/v1",
+                openrouter_model="test/model",
                 replicate_api_token="test_token",
                 brave_api_key="test_brave_key"
             )
@@ -276,6 +280,7 @@ def test_error_handling():
                 api=APIConfig(
                     openrouter_api_key="",
                     openrouter_base_url="https://openrouter.ai/api/v1",
+                    openrouter_model="test/model",
                     replicate_api_token="test_token",
                     brave_api_key="test_brave_key"
                 )
@@ -292,6 +297,7 @@ def test_error_handling():
                 api=APIConfig(
                     openrouter_api_key="test_key",
                     openrouter_base_url="",
+                    openrouter_model="test/model",
                     replicate_api_token="test_token",
                     brave_api_key="test_brave_key"
                 )

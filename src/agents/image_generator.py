@@ -143,72 +143,93 @@ Please provide image prompts in a structured format with header image, supplemen
             logger.error(f"Failed to create supplemental image prompts: {e}")
             return [f"Image representing {heading}" for heading in subheadings[:3]]
     
-    def generate_images(self, image_prompts: Dict[str, Any]) -> Dict[str, str]:
-        """Coordinate image generation using the Replicate service."""
+    def generate_images(self, image_prompts: Dict[str, Any]) -> Dict[str, Dict[str, str]]:
+        """Create image placeholders with prompts instead of generating actual images."""
         try:
-            replicate_service = self.service_registry.get_replicate()
             generated_images = {}
             
-            # Generate header image
+            # Create header image placeholder
             if "header_image" in image_prompts:
                 header_prompt = image_prompts["header_image"]
-                header_image_path = replicate_service.generate_image(
-                    prompt=header_prompt,
-                    output_dir=self.config.paths.images_dir
-                )
-                generated_images["header"] = header_image_path
-                logger.info(f"Generated header image: {header_image_path}")
+                generated_images["header"] = {
+                    "prompt": header_prompt,
+                    "placeholder": f"[HEADER_IMAGE_PLACEHOLDER: {header_prompt}]",
+                    "type": "header",
+                    "alt_text": f"Header image for blog post"
+                }
+                logger.info(f"Created header image placeholder with prompt: {header_prompt[:50]}...")
             
-            # Generate supplemental images
+            # Create supplemental image placeholders
             if "supplemental_images" in image_prompts:
                 for i, prompt in enumerate(image_prompts["supplemental_images"]):
-                    image_path = replicate_service.generate_image(
-                        prompt=prompt,
-                        output_dir=self.config.paths.images_dir
-                    )
-                    generated_images[f"supplemental_{i+1}"] = image_path
-                    logger.info(f"Generated supplemental image {i+1}: {image_path}")
+                    key = f"supplemental_{i+1}"
+                    generated_images[key] = {
+                        "prompt": prompt,
+                        "placeholder": f"[SUPPLEMENTAL_IMAGE_PLACEHOLDER_{i+1}: {prompt}]",
+                        "type": "supplemental",
+                        "alt_text": f"Supplemental image {i+1} for blog post"
+                    }
+                    logger.info(f"Created supplemental image placeholder {i+1} with prompt: {prompt[:50]}...")
             
+            logger.info(f"Created {len(generated_images)} image placeholders with prompts")
             return generated_images
             
         except Exception as e:
-            logger.error(f"Failed to generate images: {e}")
+            logger.error(f"Failed to create image placeholders: {e}")
             raise
     
-    def link_images_in_content(self, content: str, image_paths: Dict[str, str]) -> str:
-        """Add image links to the blog post content."""
+    def link_images_in_content(self, content: str, image_placeholders: Dict[str, Dict[str, str]]) -> str:
+        """Add image placeholders to the blog post content."""
         try:
             image_info = "\n".join([
-                f"- {key}: {path}" for key, path in image_paths.items()
+                f"- {key}: {data['prompt']}" for key, data in image_placeholders.items()
             ])
             
             task_description = f"""
-            Add appropriate image links to this blog post content:
+            Add appropriate image placeholders to this blog post content:
             
             CONTENT:
             {content}
             
-            AVAILABLE IMAGES:
+            AVAILABLE IMACE PLACEHOLDERS:
             {image_info}
             
             Please:
-            - Add header image at the top of the post
-            - Place supplemental images at relevant points in the content
-            - Use proper markdown image syntax: ![alt text](image_path)
-            - Ensure images enhance the content flow
-            - Add descriptive alt text for accessibility
+            - Add header image placeholder at the top of the post
+            - Place supplemental image placeholders at relevant points in the content
+            - Use the placeholder format: [IMAGE_PLACEHOLDER: prompt]
+            - Ensure placeholders enhance the content flow
+            - Add descriptive context for where images should be placed
             
-            Return the content with properly placed image links.
+            Return the content with properly placed image placeholders.
             """
             
             result = self.execute_task(task_description)
-            logger.info("Added image links to blog post content")
+            logger.info("Added image placeholders to blog post content")
             return result.strip()
             
         except Exception as e:
-            logger.error(f"Failed to link images in content: {e}")
-            # Fallback: simple image insertion
-            return self._simple_image_linking(content, image_paths)
+            logger.error(f"Failed to link image placeholders in content: {e}")
+            # Fallback: simple placeholder insertion
+            return self._simple_image_placeholder_linking(content, image_placeholders)
+    
+    def _simple_image_placeholder_linking(self, content: str, image_placeholders: Dict[str, Dict[str, str]]) -> str:
+        """Simple fallback for linking image placeholders in content."""
+        try:
+            # Add header image placeholder at the top
+            if "header" in image_placeholders:
+                header_data = image_placeholders["header"]
+                content = f"{header_data['placeholder']}\n\n{content}"
+            
+            # Add supplemental image placeholders at the end
+            for key, data in image_placeholders.items():
+                if key != "header":
+                    content += f"\n\n{data['placeholder']}"
+            
+            return content
+        except Exception as e:
+            logger.error(f"Failed to perform simple image placeholder linking: {e}")
+            return content
     
     def _parse_image_prompts(self, response: str) -> Dict[str, Any]:
         """Parse the structured image prompts response."""

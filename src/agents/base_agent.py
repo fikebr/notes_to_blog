@@ -83,7 +83,7 @@ class BaseAgent(ABC):
             # Use CrewAI's built-in OpenRouter support
             # Configure the LLM with OpenRouter model string from config
             from crewai import Agent
-            model_name = self.config.api.openrouter_model if hasattr(self.config.api, 'openrouter_model') else "openai/gpt-4"
+            model_name = self.config.api.openrouter_model
             agent = Agent(
                 role=self.agent_config.role,
                 goal=self.agent_config.goal,

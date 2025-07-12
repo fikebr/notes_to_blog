@@ -284,7 +284,7 @@ class BlogPostCrew:
     def _generate_final_output(
         self, title: str, description: str, introduction: str,
         expanded_content: Dict[str, str], conclusion: str,
-        generated_images: Dict[str, str], metadata: Dict[str, Any]
+        generated_images: Dict[str, Dict[str, str]], metadata: Dict[str, Any]
     ) -> BlogPost:
         """Generate the final blog post output."""
         try:
@@ -307,24 +307,28 @@ class BlogPostCrew:
             
             content_sections.append(f"## Conclusion\n\n{conclusion}")
             
-            # Add images
+            # Add image placeholders
             if generated_images:
-                content_sections.append("\n\n## Images\n")
-                for image_key, image_path in generated_images.items():
-                    content_sections.append(f"![{image_key}]({image_path})")
+                content_sections.append("\n\n## Image Placeholders\n")
+                for image_key, image_data in generated_images.items():
+                    content_sections.append(f"### {image_key.replace('_', ' ').title()}")
+                    content_sections.append(f"**Prompt:** {image_data['prompt']}")
+                    content_sections.append(f"**Placeholder:** {image_data['placeholder']}")
+                    content_sections.append(f"**Alt Text:** {image_data['alt_text']}")
+                    content_sections.append("")
             
             full_content = "\n\n".join(content_sections)
             
-            # Create blog post
+            # Create blog post without Image objects (since we're using placeholders)
             blog_post = BlogPost(
                 frontmatter=frontmatter,
                 content=full_content,
                 filename=metadata.get("filename", f"{title.lower().replace(' ', '-')}.md"),
                 created_at=datetime.now(),
-                images=[Image(path=path, alt_text=key) for key, path in generated_images.items()]
+                images=[]  # No actual images, just placeholders in content
             )
             
-            logger.info("Final blog post output generated successfully")
+            logger.info("Final blog post output generated successfully with image placeholders")
             return blog_post
             
         except Exception as e:

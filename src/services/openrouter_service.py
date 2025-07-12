@@ -132,7 +132,7 @@ class OpenRouterService:
     async def generate_text(
         self,
         messages: List[Dict[str, str]],
-        model: str = "openai/gpt-4",
+        model: str,
         temperature: float = 0.7,
         max_tokens: int = 4000,
         **kwargs
@@ -325,14 +325,22 @@ class OpenRouterService:
                     "timestamp": datetime.now().isoformat()
                 }
             
+            # Check if model is configured
+            if not self.config.api.openrouter_model:
+                return {
+                    "status": "unhealthy",
+                    "error": "OpenRouter model not configured",
+                    "timestamp": datetime.now().isoformat()
+                }
+            
             start_time = time.time()
             
-            # Test with a simple prompt
+            # Test with a simple prompt using configured model
             messages = [{"role": "user", "content": "Hello, this is a health check."}]
             
             result = await self.generate_text(
                 messages=messages,
-                model="openai/gpt-3.5-turbo",
+                model=self.config.api.openrouter_model,
                 max_tokens=10
             )
             
