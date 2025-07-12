@@ -15,7 +15,7 @@ from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, BarColumn, TextColumn, TimeElapsedColumn
 
 from src.logger import setup_logging
-from src.models.config_models import Config
+from src.config import initialize_config, get_config
 from src.services.input_processor import InputProcessor
 from src.services.output_generator import OutputGenerator
 from src.services import ServiceRegistry
@@ -25,17 +25,15 @@ app = typer.Typer(help="Notes to Blog: Convert notes to blog posts using AI agen
 console = Console()
 
 # Global config and logger
-config: Optional[Config] = None
+config = None
 logger = None
 
 
-def load_config() -> Config:
+def load_config():
     """Load and validate application config."""
-    from src.models.config_models import Config
     try:
-        # Load config from environment variables (including .env file)
-        cfg = Config()  # This will automatically load from .env and environment variables
-        return cfg
+        # Use the initialize_config function from src.config which loads .env file
+        return initialize_config()
     except Exception as e:
         console.print(f"[red]Config error:[/red] {e}")
         raise

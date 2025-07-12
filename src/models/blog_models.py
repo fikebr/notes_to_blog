@@ -122,6 +122,7 @@ class Note(BaseModel):
     title: Optional[str] = Field(None, description="Note title", max_length=200)
     created_at: datetime = Field(default_factory=datetime.now, description="Creation timestamp")
     metadata: Dict[str, Any] = Field(default_factory=dict, description="Additional metadata")
+    filename: Optional[str] = Field(None, description="Original filename if available")
     
     @field_validator('content', mode='after')
     def validate_content(cls, v: str) -> str:
@@ -135,6 +136,13 @@ class Note(BaseModel):
         """Validate title if provided."""
         if v is not None and len(v.strip()) < 3:
             raise ValueError("Title must be at least 3 characters long if provided")
+        return v.strip() if v else None
+    
+    @field_validator('filename', mode='after')
+    def validate_filename(cls, v: Optional[str]) -> Optional[str]:
+        """Validate filename if provided."""
+        if v is not None and len(v.strip()) < 3:
+            raise ValueError("Filename must be at least 3 characters long if provided")
         return v.strip() if v else None
 
 

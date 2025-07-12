@@ -86,17 +86,19 @@ class OpenRouterService:
         self.config = config
         self.api_key = config.api.openrouter_api_key
         self.base_url = config.api.openrouter_base_url
+        
+        # Initialize rate limiter
         self.rate_limiter = RateLimiter(
             max_requests=config.security.rate_limit_requests_per_minute,
-            time_window=60  # 1 minute window
+            time_window=60
         )
         
-        # HTTP client with timeout
+        # Initialize HTTP client
         self.client = httpx.AsyncClient(
             timeout=httpx.Timeout(
-                connect=10.0,
-                read=30.0,
-                write=10.0,
+                connect=config.security.connect_timeout,
+                read=config.security.request_timeout,
+                write=config.security.request_timeout,
                 pool=30.0
             ),
             headers={
@@ -106,7 +108,11 @@ class OpenRouterService:
             }
         )
         
-        self._validate_configuration()
+        # Only validate if we have a real API key
+        if self.api_key and self.api_key != "your_openrouter_api_key_here":
+            self._validate_configuration()
+        else:
+            logger.warning("OpenRouter API key not configured - service will fail when used")
     
     def _validate_configuration(self) -> None:
         """Validate service configuration."""
@@ -117,6 +123,11 @@ class OpenRouterService:
             raise ValueError("OpenRouter base URL not configured")
         
         logger.info(f"OpenRouter service initialized with base URL: {self.base_url}")
+    
+    def _check_api_key(self) -> None:
+        """Check if API key is properly configured before making requests."""
+        if not self.api_key or self.api_key == "your_openrouter_api_key_here":
+            raise ValueError("OpenRouter API key not configured. Please set OPENROUTER_API_KEY in your .env file")
     
     async def generate_text(
         self,
@@ -129,6 +140,9 @@ class OpenRouterService:
         """Generate text using OpenRouter API."""
         
         try:
+            # Check API key before making request
+            self._check_api_key()
+            
             # Wait for rate limit slot
             await self.rate_limiter.wait_for_slot()
             
@@ -212,6 +226,9 @@ class OpenRouterService:
         """Get list of available models."""
         
         try:
+            # Check API key before making request
+            self._check_api_key()
+            
             await self.rate_limiter.wait_for_slot()
             
             response = await self.client.get(f"{self.base_url}/models")
@@ -228,6 +245,9 @@ class OpenRouterService:
         """Get information about a specific model."""
         
         try:
+            # Check API key before making request
+            self._check_api_key()
+            
             await self.rate_limiter.wait_for_slot()
             
             response = await self.client.get(f"{self.base_url}/models/{model_id}")
@@ -281,6 +301,14 @@ class OpenRouterService:
         """Perform health check of the service."""
         
         try:
+            # Check if API key is configured
+            if not self.api_key or self.api_key == "your_openrouter_api_key_here":
+                return {
+                    "status": "unhealthy",
+                    "error": "OpenRouter API key not configured",
+                    "timestamp": datetime.now().isoformat()
+                }
+            
             start_time = time.time()
             
             # Test with a simple prompt
