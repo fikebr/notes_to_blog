@@ -268,32 +268,48 @@ class OpenRouterService:
             def __init__(self, service: OpenRouterService):
                 self.service = service
             
-            async def generate(self, prompt: str, **kwargs) -> str:
-                """Generate text for CrewAI."""
+            def call(self, prompt: str, **kwargs) -> str:
+                """Synchronous call method for CrewAI compatibility."""
                 
-                messages = [{"role": "user", "content": prompt}]
-                
-                result = await self.service.generate_text(
-                    messages=messages,
-                    **kwargs
-                )
-                
-                if result["success"]:
-                    return result["content"]
-                else:
-                    raise Exception(f"Generation failed: {result['error']}")
+                try:
+                    # Create a simple async function to run
+                    async def _generate():
+                        messages = [{"role": "user", "content": prompt}]
+                        result = await self.service.generate_text(
+                            messages=messages,
+                            **kwargs
+                        )
+                        if result["success"]:
+                            return result["content"]
+                        else:
+                            raise Exception(f"Generation failed: {result['error']}")
+                    
+                    # Run in a new event loop to avoid conflicts
+                    try:
+                        loop = asyncio.get_event_loop()
+                        if loop.is_running():
+                            # Create a new event loop in a separate thread
+                            import concurrent.futures
+                            with concurrent.futures.ThreadPoolExecutor() as executor:
+                                future = executor.submit(asyncio.run, _generate())
+                                return future.result()
+                        else:
+                            return loop.run_until_complete(_generate())
+                    except RuntimeError:
+                        # No event loop, create one
+                        return asyncio.run(_generate())
+                        
+                except Exception as e:
+                    logger.error(f"Error in OpenRouter adapter call: {e}")
+                    raise
+            
+            def generate(self, prompt: str, **kwargs) -> str:
+                """Alias for call method."""
+                return self.call(prompt, **kwargs)
             
             def sync_generate(self, prompt: str, **kwargs) -> str:
-                """Synchronous wrapper for CrewAI compatibility."""
-                
-                # Run async function in sync context
-                loop = asyncio.get_event_loop()
-                if loop.is_running():
-                    # If we're already in an async context, create a new task
-                    task = asyncio.create_task(self.generate(prompt, **kwargs))
-                    return task.result()
-                else:
-                    return loop.run_until_complete(self.generate(prompt, **kwargs))
+                """Alias for call method."""
+                return self.call(prompt, **kwargs)
         
         return OpenRouterCrewAIAdapter(self)
     

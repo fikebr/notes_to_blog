@@ -10,7 +10,7 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Dict, Any, Optional, List
 
-from crewai import Agent
+from crewai import Agent, Task
 from pydantic import BaseModel
 
 from src.models.config_models import Config
@@ -80,10 +80,10 @@ class BaseAgent(ABC):
     def _create_crewai_agent(self) -> Agent:
         """Create CrewAI agent instance."""
         try:
-            # Get OpenRouter adapter for LLM
-            openrouter_service = self.service_registry.get_openrouter()
-            llm_adapter = openrouter_service.create_crewai_adapter()
-            
+            # Use CrewAI's built-in OpenRouter support
+            # Configure the LLM with OpenRouter model string from config
+            from crewai import Agent
+            model_name = self.config.api.openrouter_model if hasattr(self.config.api, 'openrouter_model') else "openai/gpt-4"
             agent = Agent(
                 role=self.agent_config.role,
                 goal=self.agent_config.goal,
@@ -92,10 +92,10 @@ class BaseAgent(ABC):
                 allow_delegation=self.agent_config.allow_delegation,
                 max_iter=self.agent_config.max_iterations,
                 memory=self.agent_config.memory,
-                llm=llm_adapter
+                llm=model_name  # Configurable model name
             )
             
-            logger.info(f"Created CrewAI agent: {self.agent_config.name}")
+            logger.info(f"Created CrewAI agent: {self.agent_config.name} using model: {model_name}")
             return agent
             
         except Exception as e:
@@ -129,8 +129,15 @@ class BaseAgent(ABC):
             logger.info(f"Executing task with {self.agent_config.name}")
             logger.debug(f"Task prompt: {prompt[:200]}...")
             
+            # Create a proper CrewAI Task object
+            task = Task(
+                description=prompt,
+                agent=self.crewai_agent,
+                expected_output="Detailed response based on the task description"
+            )
+            
             # Execute the task using CrewAI agent
-            result = self.crewai_agent.execute_task(prompt)
+            result = self.crewai_agent.execute_task(task)
             
             logger.info(f"Task completed by {self.agent_config.name}")
             return result

@@ -6,11 +6,14 @@ default values, and validation using Pydantic models.
 """
 
 import os
+import logging
 from typing import Optional
 
 from dotenv import load_dotenv
 
 from src.models.config_models import Config
+
+logger = logging.getLogger(__name__)
 
 
 def load_config(env_file: Optional[str] = None) -> Config:
@@ -120,6 +123,13 @@ def load_config(env_file: Optional[str] = None) -> Config:
             "enable_debug_endpoints": os.getenv("ENABLE_DEBUG_ENDPOINTS", "false").lower() == "true",
         },
     }
+    
+    # Set environment variables for CrewAI to use OpenRouter
+    if os.getenv("OPENROUTER_API_KEY"):
+        os.environ["OPENAI_API_KEY"] = os.getenv("OPENROUTER_API_KEY")
+        os.environ["OPENAI_API_BASE"] = "https://openrouter.ai/api/v1"
+        os.environ["OPENAI_API_TYPE"] = "open_ai"
+        logger.info("Configured CrewAI to use OpenRouter for LLM calls")
     
     try:
         return Config(**config_data)
